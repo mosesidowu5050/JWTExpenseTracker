@@ -1,6 +1,7 @@
 package com.mosesidowu.expenseSecurity.controller;
 
 
+import com.mosesidowu.expenseSecurity.data.models.Expense;
 import com.mosesidowu.expenseSecurity.dtos.request.*;
 import com.mosesidowu.expenseSecurity.dtos.response.ApiResponse;
 import com.mosesidowu.expenseSecurity.dtos.response.ExpenseResponse;
@@ -71,9 +72,8 @@ public class ExpenseController {
     @GetMapping("/all")
     public ResponseEntity<?> getAllExpenses() {
         try {
-            String email = AuthUtil.getCurrentUserEmail();
-            List<ExpenseResponse> responses = expenseService.getAllExpenses(email);
-            return new ResponseEntity<>(new ApiResponse(responses, true), HttpStatus.OK);
+            List<ExpenseResponse> expenses = expenseService.getAllExpenses();
+            return new ResponseEntity<>(new ApiResponse(expenses, true), HttpStatus.OK);
         } catch (UserException e) {
             return new ResponseEntity<>(new ApiResponse(e.getMessage(), false), HttpStatus.BAD_REQUEST);
         }
@@ -82,8 +82,7 @@ public class ExpenseController {
     @GetMapping("/search")
     public ResponseEntity<?> searchExpensesByTitle(@RequestParam("title") String title) {
         try {
-            String email = AuthUtil.getCurrentUserEmail();
-            List<ExpenseResponse> responses = expenseService.searchExpensesByTitle(email, title);
+            List<ExpenseResponse> responses = expenseService.searchExpensesByTitle(title);
             return new ResponseEntity<>(new ApiResponse(responses, true), HttpStatus.OK);
         } catch (UserException e) {
             return new ResponseEntity<>(new ApiResponse(e.getMessage(), false), HttpStatus.BAD_REQUEST);
@@ -93,13 +92,13 @@ public class ExpenseController {
     @GetMapping("/filter/category")
     public ResponseEntity<?> filterByCategory(@RequestParam("category") String category) {
         try {
-            String email = AuthUtil.getCurrentUserEmail();
-            List<ExpenseResponse> responses = expenseService.filterByCategory(email, category);
+            List<ExpenseResponse> responses = expenseService.filterByCategory(category);
             return new ResponseEntity<>(new ApiResponse(responses, true), HttpStatus.OK);
         } catch (UserException e) {
             return new ResponseEntity<>(new ApiResponse(e.getMessage(), false), HttpStatus.BAD_REQUEST);
         }
     }
+
 
     @GetMapping("/filter/date-range")
     public ResponseEntity<?> filterByDateRange(
@@ -107,8 +106,7 @@ public class ExpenseController {
             @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 
         try {
-            String email = AuthUtil.getCurrentUserEmail();
-            List<ExpenseResponse> responses = expenseService.filterByDateRange(email, startDate, endDate);
+            List<ExpenseResponse> responses = expenseService.filterByDateRange(startDate, endDate);
             return new ResponseEntity<>(new ApiResponse(responses, true), HttpStatus.OK);
         } catch (UserException e) {
             return new ResponseEntity<>(new ApiResponse(e.getMessage(), false), HttpStatus.BAD_REQUEST);

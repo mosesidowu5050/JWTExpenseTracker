@@ -1,12 +1,14 @@
 package com.mosesidowu.expenseSecurity.services;
 
 import com.mosesidowu.expenseSecurity.data.models.Expense;
+import com.mosesidowu.expenseSecurity.data.models.User;
 import com.mosesidowu.expenseSecurity.data.repository.ExpensesRepository;
 import com.mosesidowu.expenseSecurity.data.repository.UserRepository;
 import com.mosesidowu.expenseSecurity.dtos.request.*;
 import com.mosesidowu.expenseSecurity.dtos.response.ExpenseResponse;
 import com.mosesidowu.expenseSecurity.dtos.response.TotalExpenseResponse;
 import com.mosesidowu.expenseSecurity.exception.UserException;
+import com.mosesidowu.expenseSecurity.util.AuthUtil;
 import com.mosesidowu.expenseSecurity.util.Helper;
 import com.mosesidowu.expenseSecurity.util.Mapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +17,11 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import static com.mosesidowu.expenseSecurity.util.Helper.validateCategory;
+import static com.mosesidowu.expenseSecurity.util.Mapper.toExpense;
 
 @Service
 public class ExpenseServiceImpl implements ExpenseService {
@@ -29,12 +36,17 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     @Override
     public ExpenseResponse addExpense(ExpenseRequest request, String email) {
-        Helper.validateCreateRequest(request);
-        Expense expense = Mapper.toExpense(request);
-        Expense saved = expenseRepository.save(expense);
+        User user = userRepository.findUserByEmail(AuthUtil.getCurrentUserEmail())
+                .orElseThrow(() -> new UserException("User not found"));
 
-        return Mapper.toExpenseResponse(saved, request.getCurrencyCode());
+        Expense expense = toExpense(request, user); // update this method to accept User
+        expenseRepository.save(expense);
+
+        return toExpense(expense);
     }
+
+
+
 
     @Override
     public ExpenseResponse updateExpense(UpdateExpenseRequest request, String email) {
@@ -52,72 +64,52 @@ public class ExpenseServiceImpl implements ExpenseService {
         return Mapper.toExpenseResponse(updated, request.getCurrencyCode());
     }
 
-    @Override
-    public void deleteExpense(String expenseId, String userId) {
-        Expense expense = expenseRepository.findByExpenseIdAndUserId(expenseId, userId)
-                .orElseThrow(() -> new UserException("Expense not found"));
 
-        expenseRepository.delete(expense);
+    @Override
+    public void deleteExpense(String expenseId, String email) {
+        deleteExpenses(expenseId, email);
     }
+
 
     @Override
     public ExpenseResponse getExpenseById(ExpenseIdRequest request, String email) {
         Expense expense = Helper.getExpenseByIdAndUserId(expenseRepository, request.getExpenseId(), request.getUserId());
+
         return Mapper.toExpenseResponse(expense, request.getCurrencyCode());
     }
 
-    @Override
-    public List<ExpenseResponse> getAllExpenses(String userId) {
-        List<Expense> expenses = expenseRepository.findByUserId(userId);
-        List<ExpenseResponse> responses = new ArrayList<>();
-
-        for (Expense exp : expenses) {
-            responses.add(Mapper.toExpense(exp));
-        }
-
-        return responses;
-    }
-
 
     @Override
-    public List<ExpenseResponse> searchExpensesByTitle(String userId, String title) {
-        List<Expense> expenses = expenseRepository.findByUserIdAndExpenseTitleContainingIgnoreCase(userId, title);
-        List<ExpenseResponse> responses = new ArrayList<>();
+    public List<ExpenseResponse> getAllExpenses() {
+        List<Expense> expenses = getExpenses();
 
-        for (Expense exp : expenses) {
-            responses.add(Mapper.toExpense(exp));
-        }
-
-        return responses;
+        return expenses.stream()
+                .map(Mapper::toResponse)
+                .collect(Collectors.toList());
     }
 
 
 
     @Override
-    public List<ExpenseResponse> filterByCategory(String userId, String category) {
-        List<Expense> expenses = expenseRepository.findByUserIdAndCategory(userId, category);
-        List<ExpenseResponse> responses = new ArrayList<>();
+    public List<ExpenseResponse> searchExpensesByTitle(String title) {
+        return getSearchExpenses(title);
+    }
 
-        for (Expense exp : expenses) {
-            responses.add(Mapper.toExpense(exp));
-        }
 
-        return responses;
+    @Override
+    public List<ExpenseResponse> filterByCategory(String category) {
+        validateCategory(category);
+
+        return getExpenseCategory(category);
     }
 
 
 
     @Override
-    public List<ExpenseResponse> filterByDateRange(String userId, LocalDate startDate, LocalDate endDate) {
-        List<Expense> expenses = expenseRepository.findByUserIdAndExpenseDateBetween(userId, startDate, endDate);
-
-        List<ExpenseResponse> responses = new ArrayList<>();
-        for (Expense exp : expenses) {
-            responses.add(Mapper.toExpense(exp));
-        }
-
-        return responses;
+    public List<ExpenseResponse> filterByDateRange(LocalDate startDate, LocalDate endDate) {
+        return getFilterDateResponse(startDate, endDate);
     }
+
 
 
 
@@ -130,5 +122,83 @@ public class ExpenseServiceImpl implements ExpenseService {
         TotalExpenseResponse response = new TotalExpenseResponse();
         response.setTotalAmount(formatted);
         return response;
+    }
+
+
+
+    public void deleteExpenses(String expenseId, String email) throws UserException {
+        System.out.println("Deleting expense with ID: " + expenseId + " for user: " + email);
+
+        Optional<Expense> optionalExpense = expenseRepository.findById(expenseId);
+        if (optionalExpense.isEmpty()) {
+            throw new UserException("Expense not found");
+        }
+
+        Expense expense = optionalExpense.get();
+        expenseRepository.delete(expense);
+    }
+
+
+    private List<Expense> getExpenses() {
+        String email = AuthUtil.getCurrentUserEmail();  // Extract email from JWT
+        User user = userRepository.findUserByEmail(email)
+                .orElseThrow(() -> new UserException("User not found"));
+
+        String userId = user.getUserId();
+        List<Expense> expenses = expenseRepository.findAllByUserId(userId);
+        return expenses;
+    }
+
+
+    private List<ExpenseResponse> getExpenseCategory(String category) {
+        String email = AuthUtil.getCurrentUserEmail();  // Extract email from JWT
+        User user = userRepository.findUserByEmail(email)
+                .orElseThrow(() -> new UserException("User not found"));
+
+        return getResponseList(category, user);
+    }
+
+    private List<ExpenseResponse> getResponseList(String category, User user) {
+        List<Expense> expenses = expenseRepository.findByUserIdAndCategoryContainingIgnoreCase(user.getUserId(), category);
+        List<ExpenseResponse> responses = new ArrayList<>();
+
+        for (Expense exp : expenses) {
+            responses.add(toExpense(exp));
+        }
+
+        return responses;
+    }
+
+
+    private List<ExpenseResponse> getSearchExpenses(String title) {
+        String email = AuthUtil.getCurrentUserEmail();  // Extract email from JWT
+        User user = userRepository.findUserByEmail(email)
+                .orElseThrow(() -> new UserException("User not found"));
+
+        List<Expense> expenses = expenseRepository.findByUserIdAndExpenseTitleContainingIgnoreCase(
+                user.getUserId(), title);
+
+        List<ExpenseResponse> responses = new ArrayList<>();
+        for (Expense exp : expenses) {
+            responses.add(toExpense(exp));
+        }
+
+        return responses;
+    }
+
+
+    private List<ExpenseResponse> getFilterDateResponse(LocalDate startDate, LocalDate endDate) {
+        String email = AuthUtil.getCurrentUserEmail();  // Extract email from JWT
+        User user = userRepository.findUserByEmail(email)
+                .orElseThrow(() -> new UserException("User not found"));
+
+        List<Expense> expenses = expenseRepository.findByUserIdAndExpenseDateBetween(user.getUserId(), startDate, endDate);
+
+        List<ExpenseResponse> responses = new ArrayList<>();
+        for (Expense exp : expenses) {
+            responses.add(toExpense(exp));
+        }
+
+        return responses;
     }
 }

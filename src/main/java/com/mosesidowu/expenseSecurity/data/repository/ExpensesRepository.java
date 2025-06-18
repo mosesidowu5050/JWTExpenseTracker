@@ -15,11 +15,10 @@ public interface ExpensesRepository extends MongoRepository<Expense,String> {
 
     List<Expense> findByUserIdAndExpenseTitleContainingIgnoreCase(String userId, String expenseTitle);
 
-    List<Expense> findByUserIdAndCategory(String userId, String category);
+    List<Expense> findByUserIdAndCategoryContainingIgnoreCase(String userId, String category);
 
     List<Expense> findByUserIdAndExpenseDateBetween(String userId, LocalDate start, LocalDate end);
+    List<Expense> findAllByUserId(String userId);
 
-    Optional<Expense> findByExpenseId(String expenseId);
-    List<Expense> findExpenseByExpenseTitle(String groceries);
-    Optional<Expense> findExpenseByExpenseId(String nonExistent);
+
 }

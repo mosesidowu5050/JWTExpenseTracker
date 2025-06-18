@@ -7,17 +7,18 @@ import com.mosesidowu.expenseSecurity.dtos.request.RegisterUserRequest;
 import com.mosesidowu.expenseSecurity.dtos.response.ExpenseResponse;
 import com.mosesidowu.expenseSecurity.dtos.response.LoginUserResponse;
 import com.mosesidowu.expenseSecurity.dtos.response.RegisterUserResponse;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 
 @Component
 public class Mapper {
 
-    public static User userMapper(RegisterUserRequest request) {
+    public static User userMapper(PasswordEncoder passwordEncoder, RegisterUserRequest request) {
         User user = new User();
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
-        user.setPassword(request.getPassword());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
         return user;
     }
 
@@ -41,7 +42,7 @@ public class Mapper {
     }
 
 
-    public static Expense toExpense(ExpenseRequest request) {
+    public static Expense toExpense(ExpenseRequest request, User user) {
         Expense expense = new Expense();
         expense.setUserId(request.getUserId());
         expense.setExpenseTitle(request.getExpenseTitle());
@@ -63,6 +64,7 @@ public class Mapper {
         response.setCreatedAt(expense.getExpenseDate());
         response.setExpenseAmount(expense.getExpenseAmount());
 
+
         return response;
     }
 
@@ -77,5 +79,18 @@ public class Mapper {
         response.setFormattedAmount(Helper.formatAmountWithAmount(expense.getExpenseAmount()));
 
         return response;
+    }
+
+    public static ExpenseResponse toResponse(Expense expense) {
+            ExpenseResponse response = new ExpenseResponse();
+            response.setId(expense.getExpenseId());
+            response.setTitle(expense.getExpenseTitle());
+            response.setDescription(expense.getExpenseDescription());
+            response.setExpenseAmount(expense.getExpenseAmount());
+            response.setCreatedAt(expense.getExpenseDate());
+            response.setCategory(expense.getCategory());
+            response.setFormattedAmount(Helper.formatAmountWithAmount(expense.getExpenseAmount()));
+
+            return response;
     }
 }
