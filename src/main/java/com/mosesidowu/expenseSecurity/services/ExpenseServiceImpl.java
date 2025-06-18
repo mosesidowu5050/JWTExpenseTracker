@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.mosesidowu.expenseSecurity.util.Helper.validateCategory;
+import static com.mosesidowu.expenseSecurity.util.Helper.*;
 import static com.mosesidowu.expenseSecurity.util.Mapper.toExpense;
 
 @Service
@@ -36,9 +36,7 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     @Override
     public ExpenseResponse addExpense(ExpenseRequest request, String email) {
-        User user = userRepository.findUserByEmail(AuthUtil.getCurrentUserEmail())
-                .orElseThrow(() -> new UserException("User not found"));
-
+        User user = getUser();
         Expense expense = toExpense(request, user); // update this method to accept User
         expenseRepository.save(expense);
 
@@ -47,11 +45,9 @@ public class ExpenseServiceImpl implements ExpenseService {
 
 
 
-
     @Override
     public ExpenseResponse updateExpense(UpdateExpenseRequest request, String email) {
         Helper.validateUpdateRequest(request);
-
         Expense expense = Helper.getExpenseByIdAndUserId(expenseRepository, request.getExpenseId(), request.getUserId());
 
         expense.setExpenseTitle(request.getExpenseTitle());
@@ -66,8 +62,9 @@ public class ExpenseServiceImpl implements ExpenseService {
 
 
     @Override
-    public void deleteExpense(String expenseId, String email) {
-        deleteExpenses(expenseId, email);
+    public void deleteExpense(String expenseId) {
+        User user = getUser();
+        deleteExpenses(expenseId, user.getEmail());
     }
 
 
@@ -107,16 +104,18 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     @Override
     public List<ExpenseResponse> filterByDateRange(LocalDate startDate, LocalDate endDate) {
+        validateFilterDateRange(startDate, endDate);
         return getFilterDateResponse(startDate, endDate);
     }
 
 
 
-
     @Override
     public TotalExpenseResponse getTotalExpense(String email) {
+        User user = getUser();
+
         TotalExpenseRequest request = new TotalExpenseRequest();
-        double total = Helper.getTotalExpenseForUser(expenseRepository, email);
+        double total = Helper.getTotalExpenseForUser(expenseRepository, user.getUserId());
         String formatted = Helper.formatAmountWithCurrency(total, request.getCurrencyCode());
 
         TotalExpenseResponse response = new TotalExpenseResponse();
@@ -127,8 +126,6 @@ public class ExpenseServiceImpl implements ExpenseService {
 
 
     public void deleteExpenses(String expenseId, String email) throws UserException {
-        System.out.println("Deleting expense with ID: " + expenseId + " for user: " + email);
-
         Optional<Expense> optionalExpense = expenseRepository.findById(expenseId);
         if (optionalExpense.isEmpty()) {
             throw new UserException("Expense not found");
@@ -140,9 +137,7 @@ public class ExpenseServiceImpl implements ExpenseService {
 
 
     private List<Expense> getExpenses() {
-        String email = AuthUtil.getCurrentUserEmail();  // Extract email from JWT
-        User user = userRepository.findUserByEmail(email)
-                .orElseThrow(() -> new UserException("User not found"));
+        User user = getUser();
 
         String userId = user.getUserId();
         List<Expense> expenses = expenseRepository.findAllByUserId(userId);
@@ -151,12 +146,11 @@ public class ExpenseServiceImpl implements ExpenseService {
 
 
     private List<ExpenseResponse> getExpenseCategory(String category) {
-        String email = AuthUtil.getCurrentUserEmail();  // Extract email from JWT
-        User user = userRepository.findUserByEmail(email)
-                .orElseThrow(() -> new UserException("User not found"));
+        User user = getUser();
 
         return getResponseList(category, user);
     }
+
 
     private List<ExpenseResponse> getResponseList(String category, User user) {
         List<Expense> expenses = expenseRepository.findByUserIdAndCategoryContainingIgnoreCase(user.getUserId(), category);
@@ -171,13 +165,10 @@ public class ExpenseServiceImpl implements ExpenseService {
 
 
     private List<ExpenseResponse> getSearchExpenses(String title) {
-        String email = AuthUtil.getCurrentUserEmail();  // Extract email from JWT
-        User user = userRepository.findUserByEmail(email)
-                .orElseThrow(() -> new UserException("User not found"));
+        User user = getUser();
 
         List<Expense> expenses = expenseRepository.findByUserIdAndExpenseTitleContainingIgnoreCase(
                 user.getUserId(), title);
-
         List<ExpenseResponse> responses = new ArrayList<>();
         for (Expense exp : expenses) {
             responses.add(toExpense(exp));
@@ -188,10 +179,7 @@ public class ExpenseServiceImpl implements ExpenseService {
 
 
     private List<ExpenseResponse> getFilterDateResponse(LocalDate startDate, LocalDate endDate) {
-        String email = AuthUtil.getCurrentUserEmail();  // Extract email from JWT
-        User user = userRepository.findUserByEmail(email)
-                .orElseThrow(() -> new UserException("User not found"));
-
+        User user = getUser();
         List<Expense> expenses = expenseRepository.findByUserIdAndExpenseDateBetween(user.getUserId(), startDate, endDate);
 
         List<ExpenseResponse> responses = new ArrayList<>();
@@ -200,5 +188,12 @@ public class ExpenseServiceImpl implements ExpenseService {
         }
 
         return responses;
+    }
+
+    private User getUser() {
+        String email = AuthUtil.getCurrentUserEmail();  // Extract email from JWT
+        User user = userRepository.findUserByEmail(email)
+                .orElseThrow(() -> new UserException("User not found"));
+        return user;
     }
 }

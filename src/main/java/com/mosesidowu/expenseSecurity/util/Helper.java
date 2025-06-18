@@ -53,6 +53,7 @@ public class Helper {
         return total;
     }
 
+
     public static String formatAmountWithCurrency(double amount, String currencyCode) {
         if (currencyCode == null || currencyCode.isEmpty()) currencyCode = "USD";
 

@@ -50,8 +50,7 @@ public class ExpenseController {
     @DeleteMapping("/delete/{expenseId}")
     public ResponseEntity<?> deleteExpense(@PathVariable("expenseId") String expenseId) {
         try {
-            String email = AuthUtil.getCurrentUserEmail();
-            expenseService.deleteExpense(expenseId, email);
+            expenseService.deleteExpense(expenseId);
             return new ResponseEntity<>(new ApiResponse("Deleted successfully", true), HttpStatus.OK);
         } catch (UserException e) {
             return new ResponseEntity<>(new ApiResponse(e.getMessage(), false), HttpStatus.BAD_REQUEST);

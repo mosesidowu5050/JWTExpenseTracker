@@ -26,7 +26,7 @@ public interface ExpenseService {
 
     TotalExpenseResponse getTotalExpense(String email);
 
-    void deleteExpense(String expenseId, String email);
+    void deleteExpense(String expenseId);
 }
 
 
