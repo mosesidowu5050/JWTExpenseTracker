@@ -61,7 +61,7 @@ POST /api/v1/expenses
 
 
 # Clone the repo
-git clone https://github.com/your-username/expense-tracker.git
+git clone https://github.com/mosesidowu5050/expense-tracker.git
 cd expense-tracker
 
 # Build the project
