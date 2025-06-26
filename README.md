@@ -69,7 +69,7 @@ cd expense-tracker
 
 # Run the application
 ./mvnw spring-boot:run
-
+```
 
 🧪 Testing
 Use Postman or Swagger to interact with the API. A Postman collection will be provided in /docs.
